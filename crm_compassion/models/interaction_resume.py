@@ -25,6 +25,7 @@ class InteractionResume(models.TransientModel):
             ("SMS", "SMS"),
             ("Email", "Email"),
             ("Other", "Other"),
+            ("Request", "Request")
         ]
     )
     direction = fields.Selection(
@@ -286,6 +287,34 @@ class InteractionResume(models.TransientModel):
                         {"" if full_resume else
                          "AND o.date BETWEEN (NOW() - interval '2 year') AND NOW()"}
                         )
+            -- Request (crm claim)
+                    UNION (
+                      SELECT DISTINCT ON (r.partner_id, r.date)
+                        'Request' as communication_type,
+                        r.date as communication_date,
+                        r.partner_id AS partner_id,
+                        r.email_from as email,
+                        r.subject as subject,
+                        NULL as other_type,
+                        --REGEXP_REPLACE(o.body, '<img[^>]*>', '') AS body,
+                        NULL as body,
+                        'in' AS direction,
+                        0 as phone_id,
+                        0 as email_id,
+                        0 as message_id,
+                        false as is_from_employee,
+                        0 as paper_id,
+                        NULL as tracking_status,
+                        0 as mass_mailing_id,
+                        --r.id as other_interaction_id,
+                        0 as other_interaction_id,
+                        false as has_attachment
+                        FROM "crm_claim" as r
+                        WHERE r.partner_id = ANY(%s)
+                        {"" if full_resume else
+                         "AND r.date BETWEEN (NOW() - interval '2 year') AND NOW()"}
+                        )
+            
             ORDER BY communication_date desc
                             """,
             (
@@ -293,6 +322,7 @@ class InteractionResume(models.TransientModel):
                 partner_ids,
                 partner_ids,
                 partner_email or "",
+                partner_ids,
                 partner_ids,
                 partner_ids,
             ),
